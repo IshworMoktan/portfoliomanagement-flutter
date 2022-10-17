@@ -1,15 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:floating_action_bubble/floating_action_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:portfoliomanagement/pages/stocklist.dart';
 import 'package:flutter/animation.dart';
-import 'package:portfoliomanagement/pages/buypage.dart';
-import 'package:portfoliomanagement/provider/google_sign_in.dart';
-import 'package:portfoliomanagement/widget/login_widget.dart';
-import 'package:provider/provider.dart';
+import 'package:portfoliomanagement/pages/transactionpage.dart';
+import 'package:portfoliomanagement/pages/loginpage.dart';
+
+import '../auth_service.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  HomePage({Key? key}) : super(key: key);
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -17,6 +18,17 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
+  final CollectionReference _transactions =
+      FirebaseFirestore.instance.collection('transactions');
+  final CollectionReference _stocks =
+      FirebaseFirestore.instance.collection('stocks');
+
+  var selectedStock;
+  // TextEditingController selectedStock = TextEditingController();
+  final TextEditingController quantityEditingController =
+      TextEditingController();
+  final TextEditingController buyingPriceEditingController =
+      TextEditingController();
   GlobalKey<FormState> _formkey = GlobalKey<FormState>();
 
   //buying stock dialog form
@@ -24,44 +36,103 @@ class _HomePageState extends State<HomePage>
     return await showDialog(
       context: context,
       builder: (context) {
-        final TextEditingController stocknameEditingController =
-            TextEditingController();
-        final TextEditingController quantityEditingController =
-            TextEditingController();
-        final TextEditingController buyingPriceEditingController =
-            TextEditingController();
+        //adding buy function
+        Future<void> addBuy() {
+          return _transactions
+              .add({
+                'StockName': selectedStock,
+                'Quantity': quantityEditingController.text,
+                'StockPrice': buyingPriceEditingController.text,
+                'uid': FirebaseAuth.instance.currentUser!.uid!,
+                'TransactionDate': DateTime.now(),
+                'TransactionType': 'Buy',
+              })
+              .then((value) => print('Stock purchased'))
+              .catchError((error) => print('Failed to purchase: $error'));
+        }
+
+
+
         return AlertDialog(
           content: Form(
             key: _formkey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: stocknameEditingController,
-                  validator: (value) {
-                    return value!.isNotEmpty ? null : "Invalid Field";
-                  },
-                  decoration: const InputDecoration(
-                      label: Text("Stockname"),
-                      hintText: "Enter your stock name"),
-                ),
-                TextFormField(
-                  controller: quantityEditingController,
-                  validator: (value) {
-                    return value!.isNotEmpty ? null : "Invalid Field";
-                  },
-                  decoration: const InputDecoration(
-                      label: Text("Quantity"), hintText: "10-10000"),
-                ),
-                TextFormField(
-                  controller: buyingPriceEditingController,
-                  validator: (value) {
-                    return value!.isNotEmpty ? null : "Invalid Field";
-                  },
-                  decoration: const InputDecoration(
-                      label: Text("Buying price"), hintText: "Rs.120000"),
-                ),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  //dropdown stock name menu
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection("stocknames")
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        Text("Loading");
+                      } else {
+                        List<DropdownMenuItem> stocknameslist = [];
+                        for (int i = 0; i < snapshot.data!.docs.length; i++) {
+                          DocumentSnapshot snap = snapshot.data!.docs[i];
+
+                          stocknameslist.add(
+                            DropdownMenuItem(
+                              child: Text(
+                                snap.id,
+                                style: TextStyle(color: Colors.green),
+                              ),
+                              value: "${snap.id}",
+                            ),
+                          );
+                        }
+
+                        return DropdownButtonFormField(
+                          items: stocknameslist,
+                          onChanged: (StockNameValue) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "Selected stockname is $StockNameValue",
+                                  style: TextStyle(color: Colors.green),
+                                ),
+                              ),
+                            );
+                            setState(
+                              () {
+                                selectedStock = StockNameValue;
+                              },
+                            );
+                          },
+                          isExpanded: false,
+                          value: selectedStock,
+                          hint: Text(
+                            "Choose stockname",
+                            style: TextStyle(
+                              color: Color(0xff11b719),
+                            ),
+                          ),
+                        );
+                      }
+                      return SizedBox.shrink();
+                    },
+                  ),
+
+                  TextFormField(
+                    controller: quantityEditingController,
+                    validator: (value) {
+                      return value!.isNotEmpty ? null : "Invalid Field";
+                    },
+                    decoration: const InputDecoration(
+                        label: Text("Quantity"), hintText: "10-10000"),
+                  ),
+                  TextFormField(
+                    controller: buyingPriceEditingController,
+                    validator: (value) {
+                      return value!.isNotEmpty ? null : "Invalid Field";
+                    },
+                    decoration: const InputDecoration(
+                        label: Text("Buying price"), hintText: "Rs.120000"),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -76,6 +147,7 @@ class _HomePageState extends State<HomePage>
               onPressed: () {
                 if (_formkey.currentState!.validate()) {
                   Navigator.of(context).pop();
+                  addBuy();
                 }
               },
             ),
@@ -86,48 +158,106 @@ class _HomePageState extends State<HomePage>
   }
 
   //selling stock dialog form
+
   Future<void> showSellPage(BuildContext context) async {
     return await showDialog(
       context: context,
       builder: (context) {
-        final TextEditingController stocknameEditingController =
-            TextEditingController();
-        final TextEditingController quantityEditingController =
-            TextEditingController();
-        final TextEditingController sellingPriceEditingController =
-            TextEditingController();
+        //adding sell function
+        Future<void> addSell() {
+          return _transactions
+              .add({
+                'StockName': selectedStock,
+                'Quantity': quantityEditingController.text,
+                'StockPrice': buyingPriceEditingController.text,
+                'uid': FirebaseAuth.instance.currentUser!.uid!,
+                'TransactionDate': DateTime.now(),
+                'TransactionType': 'Sell',
+              })
+              .then((value) => print('Stock sold'))
+              .catchError((error) => print('Failed to purchase: $error'));
+        }
+
         return AlertDialog(
           content: Form(
             key: _formkey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: stocknameEditingController,
-                  validator: (value) {
-                    return value!.isNotEmpty ? null : "Invalid Field";
-                  },
-                  decoration: const InputDecoration(
-                      label: Text("Stockname"),
-                      hintText: "Enter your stock name"),
-                ),
-                TextFormField(
-                  controller: quantityEditingController,
-                  validator: (value) {
-                    return value!.isNotEmpty ? null : "Invalid Field";
-                  },
-                  decoration: const InputDecoration(
-                      label: Text("Quantity"), hintText: "10-10000"),
-                ),
-                TextFormField(
-                  controller: sellingPriceEditingController,
-                  validator: (value) {
-                    return value!.isNotEmpty ? null : "Invalid Field";
-                  },
-                  decoration: const InputDecoration(
-                      label: Text("Buying price"), hintText: "Rs.120000"),
-                ),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  //dropdown stock name menu
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection("stocknames")
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        Text("Loading");
+                      } else {
+                        List<DropdownMenuItem> stocknameslist = [];
+                        for (int i = 0; i < snapshot.data!.docs.length; i++) {
+                          DocumentSnapshot snap = snapshot.data!.docs[i];
+
+                          stocknameslist.add(
+                            DropdownMenuItem(
+                              child: Text(
+                                snap.id,
+                                style: TextStyle(color: Colors.green),
+                              ),
+                              value: "${snap.id}",
+                            ),
+                          );
+                        }
+
+                        return DropdownButtonFormField(
+                          items: stocknameslist,
+                          onChanged: (StockNameValue) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "Selected stockname is $StockNameValue",
+                                  style: TextStyle(color: Colors.green),
+                                ),
+                              ),
+                            );
+                            setState(
+                              () {
+                                selectedStock = StockNameValue;
+                              },
+                            );
+                          },
+                          isExpanded: false,
+                          value: selectedStock,
+                          hint: Text(
+                            "Choose stockname",
+                            style: TextStyle(
+                              color: Color(0xff11b719),
+                            ),
+                          ),
+                        );
+                      }
+                      return SizedBox.shrink();
+                    },
+                  ),
+
+                  TextFormField(
+                    controller: quantityEditingController,
+                    validator: (value) {
+                      return value!.isNotEmpty ? null : "Invalid Field";
+                    },
+                    decoration: const InputDecoration(
+                        label: Text("Quantity"), hintText: "10-10000"),
+                  ),
+                  TextFormField(
+                    controller: buyingPriceEditingController,
+                    validator: (value) {
+                      return value!.isNotEmpty ? null : "Invalid Field";
+                    },
+                    decoration: const InputDecoration(
+                        label: Text("Selling price"), hintText: "Rs.120000"),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -136,12 +266,13 @@ class _HomePageState extends State<HomePage>
             TextButton(
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.teal,
               ),
               child: const Text('Sell'),
               onPressed: () {
                 if (_formkey.currentState!.validate()) {
                   Navigator.of(context).pop();
+                  addSell();
                 }
               },
             ),
@@ -168,9 +299,6 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget build(BuildContext context) {
-
-    final user = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
       floatingActionButton: FloatingActionBubble(
         items: <Bubble>[
@@ -226,7 +354,22 @@ class _HomePageState extends State<HomePage>
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const HomePage()),
+                    MaterialPageRoute(builder: (context) => HomePage()),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 50, left: 50),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.currency_exchange,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => TransactionPage()),
                   );
                 },
               ),
@@ -241,7 +384,7 @@ class _HomePageState extends State<HomePage>
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const Stocklist()),
+                    MaterialPageRoute(builder: (context) => Stocklist()),
                   );
                 },
               ),
@@ -269,8 +412,13 @@ class _HomePageState extends State<HomePage>
                       padding: const EdgeInsets.only(left: 155),
                       child: TextButton(
                         onPressed: () {
-                          final provider = Provider.of<GoogleSignInProvider>(context,listen: false);
-                          provider.logout();
+                          AuthService().disconnect();
+                          AuthService().signOut();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const LoginPage()),
+                          );
                         },
                         child: const Text('SignOut'),
                       ),
@@ -283,7 +431,7 @@ class _HomePageState extends State<HomePage>
                 child: Row(
                   children: [
                     Text(
-                      'user: ${user?.displayName}',
+                      FirebaseAuth.instance.currentUser!.displayName!,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -538,26 +686,6 @@ class _HomePageState extends State<HomePage>
                       ),
                     ],
                   ),
-                ),
-              ),
-
-              //Stocks
-
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    Container(
-                      child: const Text(
-                        " Portfolio",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],

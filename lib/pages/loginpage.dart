@@ -2,24 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:portfoliomanagement/provider/google_sign_in.dart';
-import 'package:portfoliomanagement/provider/google_sign_in.dart';
-import 'package:provider/provider.dart';
+import 'package:portfoliomanagement/auth_service.dart';
 
-import '../pages/homepage.dart';
-import '../provider/google_sign_in.dart';
-import '../provider/google_sign_in.dart';
 
-class LoginWidget extends StatefulWidget {
-  const LoginWidget({Key? key}) : super(key: key);
+import 'homepage.dart';
+
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({Key? key}) : super(key: key);
 
   @override
-  State<LoginWidget> createState() => _LoginWidgetState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 
 
-class _LoginWidgetState extends State<LoginWidget> {
+class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -71,8 +69,8 @@ class _LoginWidgetState extends State<LoginWidget> {
 
                   // by onpressed we call the function signup function
                   onPressed: () {
-                    final provider = Provider.of<GoogleSignInProvider>(context, listen:false);
-                    provider.googleLogin();
+
+                    AuthService().signInWithGoogle();
                   },
                 ),
               ),

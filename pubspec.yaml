@@ -38,6 +38,8 @@ dependencies:
   cupertino_icons: ^1.0.2
   floating_action_bubble: ^1.1.4
   floating_bottom_bar: ^0.0.1
+  dropdown_search: ^5.0.3
+  intl: ^0.17.0
 
   #Googlesignin
   firebase_auth: ^3.11.2
@@ -45,6 +47,9 @@ dependencies:
 
   #GoogleIcon
   font_awesome_flutter: ^10.2.1
+
+  #firebase
+  cloud_firestore: ^3.1.14
 
   #State management
   provider: ^6.0.3
